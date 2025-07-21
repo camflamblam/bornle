@@ -13,3 +13,34 @@ body {
   box-shadow: 0 0 10px rgba(0,0,0,0.1);
   border-radius: 10px;
 }
+
+#guessInput {
+  width: 100%;
+  max-width: 320px;
+  padding: 14px 16px;
+  font-size: 18px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+}
+
+#guessInput:focus {
+  outline: none;
+  border-color: #4a6ef5;
+  box-shadow: 0 0 0 2px rgba(74,110,245,0.2);
+}
+
+#guessButton {
+  padding: 14px 28px;
+  font-size: 18px;
+  border: none;
+  background: #4a6ef5;
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .2s;
+}
+#guessButton:hover {
+  background: #3451c5;
+}
