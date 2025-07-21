@@ -3,15 +3,32 @@ const SHEET_ID   = '180LA6R_gcH-5VOgibikuolK7PiuzPtNE48sCLpvGuvc';
 const SHEET_NAME = 'people';
 const SHEET_URL  = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
-// normalize: lowercase, strip punctuation/accents
+// normalize: lowercase, strip punctuation/accents, partial guess, aliases
 function normalize(str) {
   return str
+    .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/gi, "")
+    .replace(/[^a-z0-9\s]/g, "")
     .replace(/\s+/g, " ")
-    .toLowerCase()
     .trim();
+}
+
+function nameMatchesGuess(person, guess) {
+  const main = normalize(person.name);
+
+  // Split aliases column into an array (if present)
+  const aliases = person.aliases
+    ? person.aliases.split(',').map(a => normalize(a))
+    : [];
+
+  // Direct name or alias match
+  if (main === guess || aliases.includes(guess)) return true;
+
+  // Optional: allow guess contained in full name
+  if (main.includes(guess)) return true;
+
+  return false;
 }
 
 let peopleData = [];
