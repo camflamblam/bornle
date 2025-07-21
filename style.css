@@ -88,10 +88,9 @@ h1 {
   font-weight: 600;
 }
 
-/* Portrait styling (if you want to move inline styles here) */
 #portrait {
+  display: none;            /* hidden by default */
   max-width: 200px;
-  display: block;
   margin: 20px auto;
   border-radius: 4px;
 }

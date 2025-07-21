@@ -84,8 +84,8 @@ fetch(SHEET_URL)
 
   // 2️⃣ Load images
 function loadImageForPerson(person) {
-  if (!person || !person.WikiURL) return;
-  const title = person.WikiURL.split('/wiki/')[1];
+  if (!person || !person.wikiurl) return;  // lowercase key
+  const title = person.wikiurl.split('/wiki/')[1];
   fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
     .then(r => r.json())
     .then(summary => {
@@ -93,9 +93,10 @@ function loadImageForPerson(person) {
         const img = document.getElementById('portrait');
         img.src = summary.thumbnail.source;
         img.alt = person.name;
+        img.style.display = 'block'; 
       }
     })
-    .catch(err => console.warn('No image found for', person.name, err));
+    .catch(err => console.warn('No image found for', person.name));
 }
 
 // 3️⃣ Check the guesses
