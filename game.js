@@ -58,15 +58,30 @@ function checkGuess() {
   const resultEl = document.getElementById('result');
 
   if (!todaysYear) {
-    return resultEl.textContent = "⏳ Still loading…";
+    resultEl.textContent = "⏳ Still loading…";
+    return;
   }
 
-  // see if any valid answer matches
-  const match = validAnswers.find(p => normalize(p.name) === guess);
-  if (match) {
-    resultEl.textContent = `✅ Correct! ${match.name} was born in ${match.birthyear}.`;
+  const personByName = peopleData.find(p => normalize(p.name) === guess);
+  const correct = validAnswers.find(p => normalize(p.name) === guess);
+
+  if (correct) {
+    resultEl.textContent = `🎉 Correct! ${correct.name} was born in ${correct.birthyear}.`;
+    return;
+  }
+
+  if (personByName) {
+    const theirYear = parseInt(personByName.birthyear, 10);
+    const targetYear = parseInt(todaysYear, 10);
+    const diff = Math.abs(theirYear - targetYear);
+    if (diff === 0) {
+      resultEl.textContent = `🎉 Correct! ${personByName.name} was born in ${theirYear}.`;
+    } else {
+      const direction = theirYear < targetYear ? "earlier" : "later";
+      resultEl.textContent = `❌ Nope — ${personByName.name} was born ${diff} year${diff!==1?'s':''} ${direction}.`;
+    }
   } else {
-    resultEl.textContent = `❌ Nope—try another name from ${todaysYear}!`;
+    resultEl.textContent = `❌ Not a match. Try another name from ${todaysYear}.`;
   }
 }
 
