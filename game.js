@@ -109,4 +109,18 @@ function checkGuess() {
   }
 }
 
+// 3️⃣ Enter button submission
+window.addEventListener('DOMContentLoaded', () => {
+  const inputEl = document.getElementById('guessInput');
+  if (!inputEl) {
+    console.warn('guessInput field not found in DOM.');
+    return;
+  }
 
+  inputEl.addEventListener('keydown', (e) => {
+    // e.key is 'Enter' on modern browsers
+    if (e.key === 'Enter') {
+      checkGuess();
+    }
+  });
+});
