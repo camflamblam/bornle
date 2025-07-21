@@ -3,6 +3,14 @@ const SHEET_ID   = '180LA6R_gcH-5VOgibikuolK7PiuzPtNE48sCLpvGuvc';
 const SHEET_NAME = 'people';
 const SHEET_URL  = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
+//globals
+let peopleData = [];
+let todaysYear = null;
+let validAnswers = [];
+let guessHistory = [];
+const MAX_GUESSES = 5;
+let gameOver = false;
+
 // normalize: lowercase, strip punctuation/accents, partial guess, aliases
 function normalize(str) {
   return str
@@ -31,9 +39,15 @@ function nameMatchesGuess(person, guess) {
   return false;
 }
 
-let peopleData = [];
-let todaysYear = null;
-let validAnswers = [];
+function renderGuesses() {
+  const container = document.getElementById('guesses');
+  container.innerHTML = "";
+  guessHistory.forEach(entry => {
+    const div = document.createElement('div');
+    div.textContent = entry;
+    container.appendChild(div);
+  });
+}
 
 // 1️⃣ Fetch and prep
 fetch(SHEET_URL)
@@ -68,7 +82,8 @@ fetch(SHEET_URL)
     document.getElementById('result').textContent = "⚠️ Error loading data";
   });
 
-// 2️⃣ Called on button click
+// 2️⃣ Check the guesses
+//name match with aliases
 function nameMatchesGuess(person, guess) {
   const main = normalize(person.name);
   const aliases = person.aliases
@@ -81,6 +96,8 @@ function nameMatchesGuess(person, guess) {
 }
 
 function checkGuess() {
+  if (gameOver) return;
+
   const raw = document.getElementById('guessInput').value;
   const guess = normalize(raw);
   const resultEl = document.getElementById('result');
@@ -89,12 +106,21 @@ function checkGuess() {
     resultEl.textContent = "⏳ Still loading…";
     return;
   }
+  if (!guess) return;
 
   const personByName = peopleData.find(p => nameMatchesGuess(p, guess));
   const correct = validAnswers.find(p => nameMatchesGuess(p, guess));
 
+  if (guessHistory.length >= MAX_GUESSES) {
+    resultEl.textContent = "🚫 No more guesses.";
+    return;
+  }
+
   if (correct) {
-    resultEl.textContent = `🎉 Correct! ${correct.name} was born in ${correct.birthyear}.`;
+    guessHistory.push(`✅ ${correct.name} — Correct!`);
+    renderGuesses();
+    resultEl.textContent = `🎉 You got it in ${guessHistory.length} guess${guessHistory.length > 1 ? 'es' : ''}.`;
+    gameOver = true;
     return;
   }
 
@@ -103,11 +129,22 @@ function checkGuess() {
     const targetYear = parseInt(todaysYear, 10);
     const diff = Math.abs(theirYear - targetYear);
     const direction = theirYear < targetYear ? "earlier" : "later";
-    resultEl.textContent = `❌ Nope — ${personByName.name} was born ${diff} year${diff !== 1 ? 's' : ''} ${direction}.`;
+    guessHistory.push(`❌ ${personByName.name} — ${diff} year${diff !== 1 ? 's' : ''} ${direction}.`);
   } else {
-    resultEl.textContent = `❌ Not a match. Try another name from ${todaysYear}.`;
+    guessHistory.push(`❌ "${raw}" — Not found.`);
+  }
+
+  renderGuesses();
+  document.getElementById('guessInput').value = "";
+
+  if (guessHistory.length >= MAX_GUESSES) {
+    resultEl.textContent = `🛑 Out of guesses. The answers included: ${validAnswers.map(v => v.name).join(', ')}.`;
+    gameOver = true;
+  } else {
+    resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
   }
 }
+
 
 // 3️⃣ Enter button submission
 window.addEventListener('DOMContentLoaded', () => {
