@@ -1,60 +1,67 @@
-console.log("🐞 game.js loaded");
-// CONFIG — replace with your actual sheet ID + tab name
+// CONFIG — your sheet details
 const SHEET_ID   = '180LA6R_gcH-5VOgibikuolK7PiuzPtNE48sCLpvGuvc';
-const SHEET_NAME = 'people';   // <-- make sure this matches exactly!
+const SHEET_NAME = 'people';
 const SHEET_URL  = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
-let peopleData = [];
-let todaysPerson, todaysYear;
-
-// Normalize function
+// normalize: lowercase, strip punctuation/accents
 function normalize(str) {
-  return str.toLowerCase()
-            .replace(/[^a-z0-9\s]/gi, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/gi, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
 }
 
-// Load data and pick today’s person
+let peopleData = [];
+let todaysYear = null;
+let validAnswers = [];
+
+// 1️⃣ Fetch and prep
 fetch(SHEET_URL)
   .then(r => r.json())
   .then(data => {
-    console.log('✅ Sheet data:', data);
+    // only keep rows with both fields
     peopleData = data.filter(r => r.name && r.birthyear);
 
-    const now   = new Date();
-    const seed  = now.getFullYear()*10000 + (now.getMonth()+1)*100 + now.getDate();
-    const idx   = seed % peopleData.length;
-    todaysPerson = peopleData[idx];
-    todaysYear   = todaysPerson.birthyear;
-    
-    console.log('🎯 Today’s entry:', todaysPerson);
+    // get unique years
+    const years = Array.from(new Set(peopleData.map(p => p.birthyear)));
 
-    // Show the year
+    // deterministic “daily” pick
+    const today   = new Date();
+    const seed    = today.getFullYear() * 10000
+                  + (today.getMonth()+1)  * 100
+                  +  today.getDate();
+    todaysYear    = years[ seed % years.length ];
+
+    // all valid people for that year
+    validAnswers = peopleData.filter(p => p.birthyear === todaysYear);
+
+    // display the year
     document.getElementById('year').textContent = todaysYear;
   })
   .catch(err => {
-    console.error('❌ Data load error:', err);
-    document.getElementById('result').textContent = 'Error loading data';
+    console.error("Data load failed:", err);
+    document.getElementById('result').textContent = "⚠️ Error loading data";
   });
 
-// Called when you click “Submit”
+// 2️⃣ Called on button click
 function checkGuess() {
   const raw = document.getElementById('guessInput').value;
   const guess = normalize(raw);
-  console.log('💬 User guessed:', guess);
+  const resultEl = document.getElementById('result');
 
-  if (!todaysPerson) {
-    return document.getElementById('result').textContent = 'Still loading…';
+  if (!todaysYear) {
+    return resultEl.textContent = "⏳ Still loading…";
   }
 
-  const correct = normalize(todaysPerson.name);
-  console.log('✔️ Correct normalized:', correct);
-
-  if (guess === correct) {
-    document.getElementById('result').textContent =
-      `✅ Correct! It was ${todaysPerson.name}.`;
+  // see if any valid answer matches
+  const match = validAnswers.find(p => normalize(p.name) === guess);
+  if (match) {
+    resultEl.textContent = `✅ Correct! ${match.name} was born in ${match.birthyear}.`;
   } else {
-    document.getElementById('result').textContent = '❌ Not quite. Try again.';
+    resultEl.textContent = `❌ Nope—try another name from ${todaysYear}!`;
   }
 }
+
