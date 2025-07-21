@@ -82,7 +82,23 @@ fetch(SHEET_URL)
     document.getElementById('result').textContent = "⚠️ Error loading data";
   });
 
-// 2️⃣ Check the guesses
+  // 2️⃣ Load images
+function loadImageForPerson(person) {
+  if (!person || !person.WikiURL) return;
+  const title = person.WikiURL.split('/wiki/')[1];
+  fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
+    .then(r => r.json())
+    .then(summary => {
+      if (summary.thumbnail && summary.thumbnail.source) {
+        const img = document.getElementById('portrait');
+        img.src = summary.thumbnail.source;
+        img.alt = person.name;
+      }
+    })
+    .catch(err => console.warn('No image found for', person.name, err));
+}
+
+// 3️⃣ Check the guesses
 //name match with aliases
 function nameMatchesGuess(person, guess) {
   const main = normalize(person.name);
@@ -120,6 +136,7 @@ function checkGuess() {
     guessHistory.push(`✅ ${correct.name} — Correct!`);
     renderGuesses();
     resultEl.textContent = `🎉 You got it in ${guessHistory.length} guess${guessHistory.length > 1 ? 'es' : ''}.`;
+    loadImageForPerson(correct);
     gameOver = true;
     return;
   }
@@ -146,7 +163,7 @@ function checkGuess() {
 }
 
 
-// 3️⃣ Enter button submission
+// 4️⃣ Enter button submission
 window.addEventListener('DOMContentLoaded', () => {
   const inputEl = document.getElementById('guessInput');
   if (!inputEl) {
