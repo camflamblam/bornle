@@ -69,6 +69,17 @@ fetch(SHEET_URL)
   });
 
 // 2️⃣ Called on button click
+function nameMatchesGuess(person, guess) {
+  const main = normalize(person.name);
+  const aliases = person.aliases
+    ? person.aliases.split(',').map(a => normalize(a))
+    : [];
+  if (main === guess || aliases.includes(guess)) return true;
+  // Optional: allow partial match
+  if (main.includes(guess)) return true;
+  return false;
+}
+
 function checkGuess() {
   const raw = document.getElementById('guessInput').value;
   const guess = normalize(raw);
@@ -79,8 +90,8 @@ function checkGuess() {
     return;
   }
 
-  const personByName = peopleData.find(p => normalize(p.name) === guess);
-  const correct = validAnswers.find(p => normalize(p.name) === guess);
+  const personByName = peopleData.find(p => nameMatchesGuess(p, guess));
+  const correct = validAnswers.find(p => nameMatchesGuess(p, guess));
 
   if (correct) {
     resultEl.textContent = `🎉 Correct! ${correct.name} was born in ${correct.birthyear}.`;
@@ -91,14 +102,11 @@ function checkGuess() {
     const theirYear = parseInt(personByName.birthyear, 10);
     const targetYear = parseInt(todaysYear, 10);
     const diff = Math.abs(theirYear - targetYear);
-    if (diff === 0) {
-      resultEl.textContent = `🎉 Correct! ${personByName.name} was born in ${theirYear}.`;
-    } else {
-      const direction = theirYear < targetYear ? "earlier" : "later";
-      resultEl.textContent = `❌ Nope — ${personByName.name} was born ${diff} year${diff!==1?'s':''} ${direction}.`;
-    }
+    const direction = theirYear < targetYear ? "earlier" : "later";
+    resultEl.textContent = `❌ Nope — ${personByName.name} was born ${diff} year${diff !== 1 ? 's' : ''} ${direction}.`;
   } else {
     resultEl.textContent = `❌ Not a match. Try another name from ${todaysYear}.`;
   }
 }
+
 
