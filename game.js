@@ -1,3 +1,4 @@
+console.log("🐞 game.js loaded");
 // CONFIG — replace with your actual sheet ID + tab name
 const SHEET_ID   = '180LA6R_gcH-5VOgibikuolK7PiuzPtNE48sCLpvGuvc';
 const SHEET_NAME = 'people';   // <-- make sure this matches exactly!
