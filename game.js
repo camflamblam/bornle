@@ -38,6 +38,11 @@ fetch(SHEET_URL)
     // all valid people for that year
     validAnswers = peopleData.filter(p => p.birthyear === todaysYear);
 
+    // console log
+    console.log('🎯 Today’s year:', todaysYear);
+    console.log('🔢 All valid answers for today:', validAnswers);
+    console.log('🔢 Count of valid answers:', validAnswers.length);
+
     // display the year
     document.getElementById('year').textContent = todaysYear;
   })
