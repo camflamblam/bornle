@@ -82,7 +82,7 @@ fetch(SHEET_URL)
     document.getElementById('result').textContent = "⚠️ Error loading data";
   });
 
-  // 2️⃣ Load images
+  // 2️⃣ Load images and bio
 function loadImageForPerson(person) {
   if (!person || !person.wikiurl) return;  // lowercase key
   const title = person.wikiurl.split('/wiki/')[1];
@@ -97,6 +97,33 @@ function loadImageForPerson(person) {
       }
     })
     .catch(err => console.warn('No image found for', person.name));
+}
+
+function revealPersonDetails(person) {
+  if (!person || !person.wikiurl) return;
+
+  const title = person.wikiurl.split('/wiki/')[1];
+
+  fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
+    .then(r => r.json())
+    .then(summary => {
+      // show portrait
+      if (summary.thumbnail && summary.thumbnail.source) {
+        const img = document.getElementById('portrait');
+        img.src = summary.thumbnail.source;
+        img.alt = person.name;
+        img.style.display = 'block';
+      }
+      // show extract
+      if (summary.extract) {
+        const bio = document.getElementById('bio');
+        bio.textContent = summary.extract;
+        bio.style.display = 'block';
+      }
+    })
+    .catch(() => {
+      console.warn("No summary for", person.name);
+    });
 }
 
 // 3️⃣ Check the guesses
@@ -138,6 +165,7 @@ function checkGuess() {
     renderGuesses();
     resultEl.textContent = `🎉 You got it in ${guessHistory.length} guess${guessHistory.length > 1 ? 'es' : ''}.`;
     loadImageForPerson(correct);
+    revealPersonDetails(correct);
     gameOver = true;
     return;
   }
@@ -156,11 +184,20 @@ function checkGuess() {
   document.getElementById('guessInput').value = "";
 
   if (guessHistory.length >= MAX_GUESSES) {
-    resultEl.textContent = `🛑 Out of guesses. The answers included: ${validAnswers.map(v => v.name).join(', ')}.`;
-    gameOver = true;
-  } else {
-    resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
-  }
+  gameOver = true;
+
+  // 1️⃣ Pick a random person from today's valid answers
+  const randomIndex = Math.floor(Math.random() * validAnswers.length);
+  const revealPerson = validAnswers[randomIndex];
+
+  // 2️⃣ Show a single revealed name
+  resultEl.textContent = 
+    `🛑 Out of guesses. Here’s someone born in ${todaysYear}: ${revealPerson.name}.`;
+
+  // 3️⃣ Pull and display their portrait & bio
+  revealPersonDetails(revealPerson);
+} else {
+  resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
 }
 
 
