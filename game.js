@@ -199,6 +199,7 @@ function checkGuess() {
 } else {
   resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
 }
+}
 
 
 // 4️⃣ Enter button submission
