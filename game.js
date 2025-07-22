@@ -111,7 +111,7 @@ function shuffleWithSeed(arr, seedStr){
 
 // Guess helpers
 function markGuessed(person){
-  guessedNames.add(normalize(person.name));
+  if (person) guessedNames.add(normalize(person.name));
 }
 
 // Year helpers
@@ -166,7 +166,7 @@ function updateSuggestions(query) {
 
   const matches = currentSuggestPool.filter(p => {
     if (guessedNames.has(normalize(p.name))) return false;
-    
+
     const nameHit  = normalize(p.name).startsWith(q);
     const aliasHit = p.aliases
       ? p.aliases.split(',').some(a => normalize(a).startsWith(q))
