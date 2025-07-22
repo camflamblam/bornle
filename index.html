@@ -14,15 +14,17 @@
   <input type="text" id="guessInput" placeholder="Type a name" />
   <button id="guessButton" onclick="checkGuess()">Submit Guess</button>
 
+  <div id="guesses"></div>
+
   <img id="portrait" alt="Portrait">
   <div id="bio"></div>
 
-  <div id="guesses"></div>
+  
   <p id="result"></p>
 
   <script src="game.js"></script>
 
-  
+  <button id="shareButton" style="display:none;">Share Your Result</button>
  <footer class="attribution">
   <p style="font-size:0.8rem;color:#666;margin-top:40px;">
   Data sourced from <a href="https://www.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a>.
