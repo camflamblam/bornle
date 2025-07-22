@@ -10,6 +10,13 @@
 
 <body>
   <h1>Bornle</h1>
+  
+  <div id="periodWrap">
+    <span class="period-label">Period:</span>
+    <div id="periodButtons" class="period-group"></div>
+  </div>
+  
+<!--Guess UI-->
   <h2 id="yearPrompt">Guess someone born in the year: <strong id="year">Loading...</strong></h2>
   <input type="text" id="guessInput" list="nameSuggestions" placeholder="Start typing..." autocomplete="off">
   <datalist id="nameSuggestions"></datalist>
@@ -17,13 +24,13 @@
 
   <div id="guesses"></div>
 
-  <img id="portrait" alt="Portrait">
-  <div id="bio"></div>
+  <img id="portrait" style="display:none;" alt="">
+  <div id="bio" style="display:none;"></div>
 
   
   <p id="result"></p>
 
-  <script src="game.js"></script>
+  <script src="gamecopy.js"></script>
 
   <button id="shareButton" style="display:none;">Share Your Result</button>
  <footer class="attribution">
