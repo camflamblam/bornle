@@ -24,8 +24,8 @@ function normalize(str) {
 
 // Stricter, token-based match
 function nameMatchesGuess(person, guess) {
-  const fullName   = normalize(person.name);                  // "johann sebastian bach"
-  const nameTokens = fullName.split(' ').filter(Boolean);     // ["johann","sebastian","bach"]
+  const fullName   = normalize(person.name);
+  const nameTokens = fullName.split(' ').filter(Boolean);
 
   const aliasList = person.aliases
     ? person.aliases.split(',').map(a => normalize(a))
@@ -48,18 +48,7 @@ function nameMatchesGuess(person, guess) {
   return guessTokens.every(t => nameTokens.includes(t));
 }
 
-// render the guess history
-function renderGuesses() {
-  const container = document.getElementById('guesses');
-  container.innerHTML = "";
-  guessHistory.forEach(entry => {
-    const div = document.createElement('div');
-    div.textContent = entry;
-    container.appendChild(div);
-  });
-}
-
-// ------- AUTOCOMPLETE (datalist) -------
+// ---------------- AUTOCOMPLETE (datalist) ----------------
 
 function updateSuggestions(query) {
   const dl = document.getElementById('nameSuggestions');
@@ -69,10 +58,10 @@ function updateSuggestions(query) {
   if (!query || query.length < 3) return;
 
   const q = normalize(query);
-  const seen = new Set(); // avoid duplicate options
+  const seen = new Set();
 
   const matches = peopleData.filter(p => {
-    const nameHit = normalize(p.name).startsWith(q);
+    const nameHit  = normalize(p.name).startsWith(q);
     const aliasHit = p.aliases
       ? p.aliases.split(',').some(a => normalize(a).startsWith(q))
       : false;
@@ -83,21 +72,27 @@ function updateSuggestions(query) {
     if (seen.has(p.name)) return;
     seen.add(p.name);
     const opt = document.createElement('option');
-    opt.value = p.name;                    // always suggest canonical name
+    opt.value = p.name;            // show canonical name
     dl.appendChild(opt);
   });
 }
 
-// SHARE HELPERS
+function initAutocomplete() {
+  const input = document.getElementById('guessInput');
+  if (!input) return;
+  input.addEventListener('input', e => updateSuggestions(e.target.value));
+}
+
+// ---------------- SHARE HELPERS ----------------
 
 function shareResult() {
-  // Build emoji grid from guessHistory
   const lines = guessHistory.map(entry => {
     if (entry.startsWith('✅'))      return '🟩';
     if (entry.includes('earlier'))   return '⬆️';
     if (entry.includes('later'))     return '⬇️';
     return '⬛';
   });
+
   const shareText =
     `Bornle ${todaysYear} • ${guessHistory.length}/${MAX_GUESSES}\n\n` +
     lines.join(' ') + `\n\n` +
@@ -116,18 +111,15 @@ function copyToClipboard(text) {
     .catch(() => prompt('Copy and paste this:', text));
 }
 
-// 1️⃣ Fetch and prep data
+// ---------------- FETCH & SETUP ----------------
+
 fetch(SHEET_URL)
   .then(r => r.json())
   .then(data => {
     peopleData = data.filter(r => r.name && r.birthyear);
 
-    // unique years, sorted
-    const years = Array.from(
-      new Set(peopleData.map(p => p.birthyear))
-    ).sort((a,b) => a - b);
+    const years = Array.from(new Set(peopleData.map(p => p.birthyear))).sort((a,b) => a - b);
 
-    // deterministic daily pick
     const today = new Date();
     const seed  = today.getFullYear() * 10000
                 + (today.getMonth()+1)  * 100
@@ -137,17 +129,17 @@ fetch(SHEET_URL)
     validAnswers = peopleData.filter(p => p.birthyear === todaysYear);
 
     document.getElementById('year').textContent = todaysYear;
-  
-      // now that peopleData exists, wire up autocomplete
-    initAutocomplete();
-   }) 
 
+    // init autocomplete *after* data is ready
+    initAutocomplete();
+  })
   .catch(err => {
     console.error("Data load failed:", err);
     document.getElementById('result').textContent = "⚠️ Error loading data";
   });
 
-// 2️⃣ Load image only
+// ---------------- WIKIPEDIA HELPERS ----------------
+
 function loadImageForPerson(person) {
   if (!person || !person.wikiurl) return;
   const title = person.wikiurl.split('/wiki/')[1];
@@ -164,21 +156,18 @@ function loadImageForPerson(person) {
     .catch(() => {/* no portrait */});
 }
 
-// 3️⃣ Reveal bio + image
 function revealPersonDetails(person) {
   if (!person || !person.wikiurl) return;
   const title = person.wikiurl.split('/wiki/')[1];
   fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
     .then(r => r.json())
     .then(summary => {
-      // portrait
       if (summary.thumbnail && summary.thumbnail.source) {
         const img = document.getElementById('portrait');
         img.src = summary.thumbnail.source;
         img.alt = person.name;
         img.style.display = 'block';
       }
-      // bio
       if (summary.extract_html) {
         const bio = document.getElementById('bio');
         bio.innerHTML = summary.extract_html;
@@ -192,13 +181,24 @@ function revealPersonDetails(person) {
     .catch(() => {/* no bio */});
 }
 
-// 4️⃣ Check guesses
+// ---------------- GAME LOGIC ----------------
+
+function renderGuesses() {
+  const container = document.getElementById('guesses');
+  container.innerHTML = "";
+  guessHistory.forEach(entry => {
+    const div = document.createElement('div');
+    div.textContent = entry;
+    container.appendChild(div);
+  });
+}
+
 function checkGuess() {
   if (gameOver) return;
 
-  const raw     = document.getElementById('guessInput').value;
-  const guess   = normalize(raw);
-  const resultEl= document.getElementById('result');
+  const raw      = document.getElementById('guessInput').value;
+  const guess    = normalize(raw);
+  const resultEl = document.getElementById('result');
 
   if (!todaysYear) {
     resultEl.textContent = "⏳ Still loading…";
@@ -209,20 +209,17 @@ function checkGuess() {
   const personByName = peopleData.find(p => nameMatchesGuess(p, guess));
   const correct      = validAnswers.find(p => nameMatchesGuess(p, guess));
 
-  // limit guesses
   if (guessHistory.length >= MAX_GUESSES) {
     resultEl.textContent = "🚫 No more guesses.";
     return;
   }
 
-  // correct!
   if (correct) {
     guessHistory.push(`✅ ${correct.name} — Correct!`);
     renderGuesses();
     resultEl.textContent =
       `🎉 You got it in ${guessHistory.length} guess${guessHistory.length>1?'es':''}.`;
 
-    // reveal details + show share
     revealPersonDetails(correct);
     document.getElementById('shareButton').style.display = 'inline-block';
 
@@ -230,7 +227,6 @@ function checkGuess() {
     return;
   }
 
-  // known person but wrong year
   if (personByName) {
     const theirYear = +personByName.birthyear;
     const diff      = Math.abs(theirYear - +todaysYear);
@@ -238,20 +234,17 @@ function checkGuess() {
     guessHistory.push(
       `❌ ${personByName.name} — ${diff} year${diff!==1?'s':''} ${dir}.`
     );
-
   } else {
-    // not found at all
     guessHistory.push(`❌ "${raw}" — Not found.`);
   }
 
   renderGuesses();
   document.getElementById('guessInput').value = "";
 
-  // out of guesses?
   if (guessHistory.length >= MAX_GUESSES) {
     gameOver = true;
 
-    const idx          = Math.floor(Math.random()*validAnswers.length);
+    const idx          = Math.floor(Math.random() * validAnswers.length);
     const revealPerson = validAnswers[idx];
 
     guessHistory.push(
@@ -264,11 +257,11 @@ function checkGuess() {
     return;
   }
 
-  // default progress message
   resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
 }
 
-// 5️⃣ Enter to submit & Share button setup
+// ---------------- EVENTS ----------------
+
 window.addEventListener('DOMContentLoaded', () => {
   const inputEl = document.getElementById('guessInput');
   if (inputEl) {
@@ -279,6 +272,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const shareBtn = document.getElementById('shareButton');
   if (shareBtn) {
+    shareBtn.style.display = 'none'; // ensure hidden to start
     shareBtn.addEventListener('click', shareResult);
   }
 });
