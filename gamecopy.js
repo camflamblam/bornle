@@ -14,6 +14,10 @@ let guessHistory       = [];
 const MAX_GUESSES      = 5;
 let gameOver           = false;
 
+// Utility to avoid null.style crashes
+function hideEl(id){ const el = document.getElementById(id); if(el) el.style.display='none'; }
+function showEl(id, disp='block'){ const el = document.getElementById(id); if(el) el.style.display=disp; }
+
 // -------- Utilities --------
 function normalize(str) {
   return str
@@ -39,7 +43,7 @@ const PERIODS = {
   all:          { label: "All Years",                         start: -Infinity, end:  Infinity }
 };
 
-// Cache (fails gracefully if quota is hit)
+// Cache (skip if quota exceeded)
 const CACHE_KEY = 'people_v5';
 
 async function loadPeople() {
@@ -55,7 +59,7 @@ async function loadPeople() {
   const res  = await fetch(SHEET_URL);
   const data = await res.json();
 
-  // Keep only needed fields to reduce size
+  // Trim to needed fields
   const clean = data
     .filter(r => r.name && r.birthyear)
     .map(({ name, birthyear, aliases, wikiurl }) => ({
@@ -69,7 +73,7 @@ async function loadPeople() {
     if (json.length < 4.5e6) sessionStorage.setItem(CACHE_KEY, json);
   } catch (e) {
     console.warn('Skipping cache:', e.name);
-    // optional: clear old keys
+    // optional: clear older caches
     Object.keys(sessionStorage)
       .filter(k => k.startsWith('people_') && k !== CACHE_KEY)
       .forEach(k => sessionStorage.removeItem(k));
@@ -77,7 +81,7 @@ async function loadPeople() {
   return clean;
 }
 
-// Seeded RNG (stable daily shuffle)
+// Seeded RNG
 function hashCode(str){
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
@@ -144,7 +148,7 @@ function nameMatchesGuess(person, guess) {
   return guessTokens.every(t => nameTokens.includes(t));
 }
 
-// ---------- AUTOCOMPLETE (datalist) ----------
+// ---------- AUTOCOMPLETE ----------
 function updateSuggestions(query) {
   const dl = document.getElementById('nameSuggestions');
   if (!dl) return;
@@ -211,8 +215,8 @@ function loadImageForPerson(person) {
   fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
     .then(r => r.json())
     .then(summary => {
-      if (summary.thumbnail && summary.thumbnail.source) {
-        const img = document.getElementById('portrait');
+      const img = document.getElementById('portrait');
+      if (img && summary.thumbnail && summary.thumbnail.source) {
         img.src = summary.thumbnail.source;
         img.alt = person.name;
         img.style.display = 'block';
@@ -227,24 +231,26 @@ function revealPersonDetails(person) {
   fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
     .then(r => r.json())
     .then(summary => {
-      if (summary.thumbnail && summary.thumbnail.source) {
-        const img = document.getElementById('portrait');
+      const img = document.getElementById('portrait');
+      if (img && summary.thumbnail && summary.thumbnail.source) {
         img.src = summary.thumbnail.source;
         img.alt = person.name;
         img.style.display = 'block';
       }
       const bio = document.getElementById('bio');
-      if (summary.extract_html) {
-        bio.innerHTML = summary.extract_html;
-      } else if (summary.extract) {
-        bio.textContent = summary.extract;
+      if (bio) {
+        if (summary.extract_html) {
+          bio.innerHTML = summary.extract_html;
+        } else if (summary.extract) {
+          bio.textContent = summary.extract;
+        }
+        bio.style.display = 'block';
       }
-      bio.style.display = 'block';
     })
     .catch(() => {});
 }
 
-// ---------- UI builders for period buttons ----------
+// ---------- Period buttons ----------
 function buildPeriodButtons(availableYears) {
   const wrap = document.getElementById('periodButtons');
   if (!wrap) return;
@@ -274,6 +280,7 @@ function setActiveButton(mode) {
 // ---------- Game logic ----------
 function renderGuesses() {
   const container = document.getElementById('guesses');
+  if (!container) return;
   container.innerHTML = "";
   guessHistory.forEach(entry => {
     const div = document.createElement('div');
@@ -285,12 +292,13 @@ function renderGuesses() {
 function checkGuess() {
   if (gameOver) return;
 
-  const raw      = document.getElementById('guessInput').value;
+  const inputEl = document.getElementById('guessInput');
+  const raw      = inputEl ? inputEl.value : '';
   const guess    = normalize(raw);
   const resultEl = document.getElementById('result');
 
   if (!todaysYear) {
-    resultEl.textContent = "⏳ Still loading…";
+    if (resultEl) resultEl.textContent = "⏳ Still loading…";
     return;
   }
   if (!guess) return;
@@ -299,18 +307,19 @@ function checkGuess() {
   const correct      = validAnswers.find(p => nameMatchesGuess(p, guess));
 
   if (guessHistory.length >= MAX_GUESSES) {
-    resultEl.textContent = "🚫 No more guesses.";
+    if (resultEl) resultEl.textContent = "🚫 No more guesses.";
     return;
   }
 
   if (correct) {
     guessHistory.push(`✅ ${correct.name} — Correct!`);
     renderGuesses();
-    resultEl.textContent =
-      `🎉 You got it in ${guessHistory.length} guess${guessHistory.length>1?'es':''}.`;
+    if (resultEl)
+      resultEl.textContent =
+        `🎉 You got it in ${guessHistory.length} guess${guessHistory.length>1?'es':''}.`;
 
     revealPersonDetails(correct);
-    document.getElementById('shareButton').style.display = 'inline-block';
+    showEl('shareButton', 'inline-block');
 
     gameOver = true;
     return;
@@ -328,7 +337,7 @@ function checkGuess() {
   }
 
   renderGuesses();
-  document.getElementById('guessInput').value = "";
+  if (inputEl) inputEl.value = "";
 
   if (guessHistory.length >= MAX_GUESSES) {
     gameOver = true;
@@ -340,12 +349,13 @@ function checkGuess() {
     );
     renderGuesses();
     revealPersonDetails(revealPerson);
-    document.getElementById('shareButton').style.display = 'inline-block';
-    resultEl.textContent = "";
+    showEl('shareButton', 'inline-block');
+    if (resultEl) resultEl.textContent = "";
     return;
   }
 
-  resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
+  if (resultEl)
+    resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
 }
 
 // ---------- Init ----------
@@ -360,7 +370,7 @@ loadPeople()
     }, {});
     allYears = Object.keys(byYear).sort((a,b)=> toNum(a) - toNum(b));
 
-    // build period buttons
+    // build buttons
     buildPeriodButtons(allYears);
 
     // default mode
@@ -375,7 +385,8 @@ loadPeople()
         const { start, end } = PERIODS[modeKey];
         subsetYears  = yearsInRange(allYears, start, end);
         if (!subsetYears.length) {
-          document.getElementById('result').textContent = "No data for that period.";
+          const resultEl = document.getElementById('result');
+          if (resultEl) resultEl.textContent = "No data for that period.";
           return;
         }
         chosenYear = pickRandomYear(subsetYears);
@@ -387,17 +398,20 @@ loadPeople()
         ? peopleData
         : subsetYears.flatMap(y => byYear[y]);
 
-      document.getElementById('year').textContent = todaysYear;
+      const yearEl = document.getElementById('year');
+      if (yearEl) yearEl.textContent = todaysYear;
 
       // reset UI/state
       guessHistory = [];
       gameOver = false;
       renderGuesses();
-      document.getElementById('result').textContent = "";
-      document.getElementById('portrait').style.display = 'none';
-      document.getElementById('bio').style.display = 'none';
-      document.getElementById('shareButton').style.display = 'none';
-      document.getElementById('guessInput').value = "";
+      const resultEl = document.getElementById('result');
+      if (resultEl) resultEl.textContent = "";
+      hideEl('portrait');
+      hideEl('bio');
+      hideEl('shareButton');
+      const inputEl = document.getElementById('guessInput');
+      if (inputEl) inputEl.value = "";
     }
 
     // init puzzle & UI
@@ -415,15 +429,15 @@ loadPeople()
       });
     }
 
-    // init autocomplete AFTER currentSuggestPool set
+    // autocomplete AFTER pool set
     initAutocomplete();
   })
   .catch(err => {
     console.error("Data load failed:", err);
-    document.getElementById('result').textContent = "⚠️ Error loading data";
+    const r = document.getElementById('result');
+    if (r) r.textContent = "⚠️ Error loading data";
   });
 
-// Enter key & share button
 window.addEventListener('DOMContentLoaded', () => {
   const inputEl = document.getElementById('guessInput');
   if (inputEl) {

@@ -147,3 +147,95 @@ h1 {
 #shareButton:hover {
   background: #6d2d2d;         /* same hover darker shade */
 }
+
+/*============== NEW CODE JULY 22 ====================*/
+
+#periodWrap {
+  max-width: 600px;
+  margin: 12px auto 24px;
+  text-align: center;
+}
+
+.period-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #555;
+  font-family: "Cinzel", serif;
+}
+
+.period-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.period-btn {
+  padding: 8px 14px;
+  font-size: 14px;
+  line-height: 1.2;
+  border: 2px solid #8b3a3a;
+  background: #fff;
+  color: #8b3a3a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+  font-family: "Cinzel", serif;
+}
+
+.period-btn:hover {
+  background: #f5f1ea;
+}
+
+.period-btn.active {
+  background: #8b3a3a;
+  color: #fff;
+}
+
+.period-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(139,58,58,.35);
+}
+
+/* =========================
+   PROMPT / YEAR (if you use #prompt & #year)
+   ========================= */
+#prompt {
+  font-family: "Cinzel", serif;
+  font-size: 2.2rem;
+  margin: 16px 0 6px;
+}
+
+#prompt #year {
+  font-size: 3rem;
+  color: #8b3a3a;
+  text-shadow: 2px 2px 4px rgba(0,0,0,.25);
+  padding-left: 6px;
+}
+
+/* If you are using #submitGuess instead of #guessButton */
+#submitGuess {
+  padding: 14px 28px;
+  font-size: 18px;
+  border: none;
+  background: #8b3a3a;
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .2s;
+  font-family: "Cinzel", serif;
+  margin-top: 14px;
+}
+#submitGuess:hover {
+  background: #6d2d2d;
+}
+
+/* Shared focus for main controls */
+#submitGuess:focus,
+#guessButton:focus,
+#shareButton:focus,
+#guessInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(139,58,58,.35);
+}

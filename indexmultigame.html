@@ -12,10 +12,11 @@
   <h1>Bornle</h1>
   
   <div id="periodWrap">
-  <label for="periodSelect">Period:</label>
-  <select id="periodSelect"></select>
+    <span class="period-label">Period:</span>
+    <div id="periodButtons" class="period-group"></div>
   </div>
-
+  
+<!--Guess UI-->
   <h2 id="yearPrompt">Guess someone born in the year: <strong id="year">Loading...</strong></h2>
   <input type="text" id="guessInput" list="nameSuggestions" placeholder="Start typing..." autocomplete="off">
   <datalist id="nameSuggestions"></datalist>
@@ -23,8 +24,8 @@
 
   <div id="guesses"></div>
 
-  <img id="portrait" alt="Portrait">
-  <div id="bio"></div>
+  <img id="portrait" style="display:none;" alt="">
+  <div id="bio" style="display:none;"></div>
 
   
   <p id="result"></p>
