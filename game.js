@@ -3,15 +3,15 @@ const SHEET_ID   = '180LA6R_gcH-5VOgibikuolK7PiuzPtNE48sCLpvGuvc';
 const SHEET_NAME = 'people';
 const SHEET_URL  = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
-//globals
-let peopleData = [];
-let todaysYear = null;
-let validAnswers = [];
-let guessHistory = [];
+// globals
+let peopleData    = [];
+let todaysYear    = null;
+let validAnswers  = [];
+let guessHistory  = [];
 const MAX_GUESSES = 5;
-let gameOver = false;
+let gameOver      = false;
 
-// normalize: lowercase, strip punctuation/accents, partial guess, aliases
+// normalize: lowercase, strip punctuation/accents
 function normalize(str) {
   return str
     .toLowerCase()
@@ -22,23 +22,18 @@ function normalize(str) {
     .trim();
 }
 
+// alias‐aware match
 function nameMatchesGuess(person, guess) {
   const main = normalize(person.name);
-
-  // Split aliases column into an array (if present)
   const aliases = person.aliases
     ? person.aliases.split(',').map(a => normalize(a))
     : [];
-
-  // Direct name or alias match
   if (main === guess || aliases.includes(guess)) return true;
-
-  // Optional: allow guess contained in full name
   if (main.includes(guess)) return true;
-
   return false;
 }
 
+// render the guess history
 function renderGuesses() {
   const container = document.getElementById('guesses');
   container.innerHTML = "";
@@ -49,32 +44,54 @@ function renderGuesses() {
   });
 }
 
-// 1️⃣ Fetch and prep
+// SHARE HELPERS
+
+function shareResult() {
+  // Build emoji grid from guessHistory
+  const lines = guessHistory.map(entry => {
+    if (entry.startsWith('✅'))      return '🟩';
+    if (entry.includes('earlier'))   return '⬆️';
+    if (entry.includes('later'))     return '⬇️';
+    return '⬛';
+  });
+  const shareText =
+    `Bornle ${todaysYear} • ${guessHistory.length}/${MAX_GUESSES}\n\n` +
+    lines.join(' ') + `\n\n` +
+    window.location.href;
+
+  if (navigator.share) {
+    navigator.share({ text: shareText }).catch(() => copyToClipboard(shareText));
+  } else {
+    copyToClipboard(shareText);
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text)
+    .then(() => alert('Result copied to clipboard!'))
+    .catch(() => prompt('Copy and paste this:', text));
+}
+
+// 1️⃣ Fetch and prep data
 fetch(SHEET_URL)
   .then(r => r.json())
   .then(data => {
-    // only keep rows with both fields
     peopleData = data.filter(r => r.name && r.birthyear);
 
-    // get unique years
-    const years = Array.from(new Set(peopleData.map(p => p.birthyear)));
+    // unique years, sorted
+    const years = Array.from(
+      new Set(peopleData.map(p => p.birthyear))
+    ).sort((a,b) => a - b);
 
-    // deterministic “daily” pick
-    const today   = new Date();
-    const seed    = today.getFullYear() * 10000
-                  + (today.getMonth()+1)  * 100
-                  +  today.getDate();
-    todaysYear    = years[ seed % years.length ];
+    // deterministic daily pick
+    const today = new Date();
+    const seed  = today.getFullYear() * 10000
+                + (today.getMonth()+1)  * 100
+                +  today.getDate();
+    todaysYear   = years[ seed % years.length ];
 
-    // all valid people for that year
     validAnswers = peopleData.filter(p => p.birthyear === todaysYear);
 
-    // console log
-    console.log('🎯 Today’s year:', todaysYear);
-    console.log('🔢 All valid answers for today:', validAnswers);
-    console.log('🔢 Count of valid answers:', validAnswers.length);
-
-    // display the year
     document.getElementById('year').textContent = todaysYear;
   })
   .catch(err => {
@@ -82,69 +99,58 @@ fetch(SHEET_URL)
     document.getElementById('result').textContent = "⚠️ Error loading data";
   });
 
-  // 2️⃣ Load images and bio
+// 2️⃣ Load image only
 function loadImageForPerson(person) {
-  if (!person || !person.wikiurl) return;  // lowercase key
-  const title = person.wikiurl.split('/wiki/')[1];
-  fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
-    .then(r => r.json())
-    .then(summary => {
-      if (summary.thumbnail && summary.thumbnail.source) {
-        const img = document.getElementById('portrait');
-        img.src = summary.thumbnail.source;
-        img.alt = person.name;
-        img.style.display = 'block'; 
-      }
-    })
-    .catch(err => console.warn('No image found for', person.name));
-}
-
-function revealPersonDetails(person) {
   if (!person || !person.wikiurl) return;
-
   const title = person.wikiurl.split('/wiki/')[1];
-
   fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
     .then(r => r.json())
     .then(summary => {
-      // show portrait
       if (summary.thumbnail && summary.thumbnail.source) {
         const img = document.getElementById('portrait');
         img.src = summary.thumbnail.source;
         img.alt = person.name;
         img.style.display = 'block';
       }
-      // show extract
-      if (summary.extract) {
+    })
+    .catch(() => {/* no portrait */});
+}
+
+// 3️⃣ Reveal bio + image
+function revealPersonDetails(person) {
+  if (!person || !person.wikiurl) return;
+  const title = person.wikiurl.split('/wiki/')[1];
+  fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
+    .then(r => r.json())
+    .then(summary => {
+      // portrait
+      if (summary.thumbnail && summary.thumbnail.source) {
+        const img = document.getElementById('portrait');
+        img.src = summary.thumbnail.source;
+        img.alt = person.name;
+        img.style.display = 'block';
+      }
+      // bio
+      if (summary.extract_html) {
+        const bio = document.getElementById('bio');
+        bio.innerHTML = summary.extract_html;
+        bio.style.display = 'block';
+      } else if (summary.extract) {
         const bio = document.getElementById('bio');
         bio.textContent = summary.extract;
         bio.style.display = 'block';
       }
     })
-    .catch(() => {
-      console.warn("No summary for", person.name);
-    });
+    .catch(() => {/* no bio */});
 }
 
-// 3️⃣ Check the guesses
-//name match with aliases
-function nameMatchesGuess(person, guess) {
-  const main = normalize(person.name);
-  const aliases = person.aliases
-    ? person.aliases.split(',').map(a => normalize(a))
-    : [];
-  if (main === guess || aliases.includes(guess)) return true;
-  // Optional: allow partial match
-  if (main.includes(guess)) return true;
-  return false;
-}
-
+// 4️⃣ Check guesses
 function checkGuess() {
   if (gameOver) return;
 
-  const raw = document.getElementById('guessInput').value;
-  const guess = normalize(raw);
-  const resultEl = document.getElementById('result');
+  const raw     = document.getElementById('guessInput').value;
+  const guess   = normalize(raw);
+  const resultEl= document.getElementById('result');
 
   if (!todaysYear) {
     resultEl.textContent = "⏳ Still loading…";
@@ -153,78 +159,78 @@ function checkGuess() {
   if (!guess) return;
 
   const personByName = peopleData.find(p => nameMatchesGuess(p, guess));
-  const correct = validAnswers.find(p => nameMatchesGuess(p, guess));
+  const correct      = validAnswers.find(p => nameMatchesGuess(p, guess));
 
+  // limit guesses
   if (guessHistory.length >= MAX_GUESSES) {
     resultEl.textContent = "🚫 No more guesses.";
     return;
   }
 
+  // correct!
   if (correct) {
     guessHistory.push(`✅ ${correct.name} — Correct!`);
     renderGuesses();
-    resultEl.textContent = `🎉 You got it in ${guessHistory.length} guess${guessHistory.length > 1 ? 'es' : ''}.`;
-    loadImageForPerson(correct);
+    resultEl.textContent =
+      `🎉 You got it in ${guessHistory.length} guess${guessHistory.length>1?'es':''}.`;
+
+    // reveal details + show share
     revealPersonDetails(correct);
+    document.getElementById('shareButton').style.display = 'inline-block';
+
     gameOver = true;
     return;
   }
 
+  // known person but wrong year
   if (personByName) {
-    const theirYear = parseInt(personByName.birthyear, 10);
-    const targetYear = parseInt(todaysYear, 10);
-    const diff = Math.abs(theirYear - targetYear);
-    const direction = theirYear < targetYear ? "earlier" : "later";
-    guessHistory.push(`❌ ${personByName.name} — ${diff} year${diff !== 1 ? 's' : ''} ${direction}.`);
+    const theirYear = +personByName.birthyear;
+    const diff      = Math.abs(theirYear - +todaysYear);
+    const dir       = theirYear < todaysYear ? "earlier" : "later";
+    guessHistory.push(
+      `❌ ${personByName.name} — ${diff} year${diff!==1?'s':''} ${dir}.`
+    );
+
   } else {
+    // not found at all
     guessHistory.push(`❌ "${raw}" — Not found.`);
   }
 
   renderGuesses();
   document.getElementById('guessInput').value = "";
 
+  // out of guesses?
   if (guessHistory.length >= MAX_GUESSES) {
-  gameOver = true;
+    gameOver = true;
 
-  // 1️⃣ Pick a random person from today's valid answers
-  const randomIndex = Math.floor(Math.random() * validAnswers.length);
-  const revealPerson = validAnswers[randomIndex];
+    const idx          = Math.floor(Math.random()*validAnswers.length);
+    const revealPerson = validAnswers[idx];
 
-    // Push the reveal into the history list
     guessHistory.push(
       `🛑 Out of guesses. Here’s someone born in ${todaysYear}: ${revealPerson.name}.`
     );
-
-    // Re‑render the full list (including the final reveal)
     renderGuesses();
-
-    // Show their portrait & bio
     revealPersonDetails(revealPerson);
-
-    // Clear any result message (optional)
-    document.getElementById('result').textContent = "";
-
-    return;  // stop further logic
-  } else {
-    // Normal “guesses left” message
-    document.getElementById('result').textContent = 
-      `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
-  }
-}
-
-
-// 4️⃣ Enter button submission
-window.addEventListener('DOMContentLoaded', () => {
-  const inputEl = document.getElementById('guessInput');
-  if (!inputEl) {
-    console.warn('guessInput field not found in DOM.');
+    document.getElementById('shareButton').style.display = 'inline-block';
+    resultEl.textContent = "";
     return;
   }
 
-  inputEl.addEventListener('keydown', (e) => {
-    // e.key is 'Enter' on modern browsers
-    if (e.key === 'Enter') {
-      checkGuess();
-    }
-  });
+  // default progress message
+  resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
+}
+
+// 5️⃣ Enter to submit & Share button setup
+window.addEventListener('DOMContentLoaded', () => {
+  const inputEl = document.getElementById('guessInput');
+  if (inputEl) {
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkGuess();
+    });
+  }
+
+  const shareBtn = document.getElementById('shareButton');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', shareResult);
+  }
 });
