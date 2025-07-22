@@ -190,15 +190,26 @@ function checkGuess() {
   const randomIndex = Math.floor(Math.random() * validAnswers.length);
   const revealPerson = validAnswers[randomIndex];
 
-  // 2️⃣ Show a single revealed name
-  resultEl.textContent = 
-    `🛑 Out of guesses. Here’s someone born in ${todaysYear}: ${revealPerson.name}.`;
+    // Push the reveal into the history list
+    guessHistory.push(
+      `🛑 Out of guesses. Here’s someone born in ${todaysYear}: ${revealPerson.name}.`
+    );
 
-  // 3️⃣ Pull and display their portrait & bio
-  revealPersonDetails(revealPerson);
-} else {
-  resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
-}
+    // Re‑render the full list (including the final reveal)
+    renderGuesses();
+
+    // Show their portrait & bio
+    revealPersonDetails(revealPerson);
+
+    // Clear any result message (optional)
+    document.getElementById('result').textContent = "";
+
+    return;  // stop further logic
+  } else {
+    // Normal “guesses left” message
+    document.getElementById('result').textContent = 
+      `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
+  }
 }
 
 
