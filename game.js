@@ -34,7 +34,7 @@ function toNum(y){
 
 // Period definitions
 const PERIODS = {
-  daily:        { label: "Daily (randomized)",               start: -Infinity, end:  Infinity },
+  daily:        { label: "Daily Challenge (All Years)",       start: -Infinity, end:  Infinity },
   ancient:      { label: "Ancient History (800 BCE–499 CE)",  start: -800,     end:  499 },
   medieval:     { label: "Medieval (500–1499)",               start: 500,      end: 1499 },
   early_modern: { label: "Early Modern (1500–1799)",          start: 1500,     end: 1799 },
