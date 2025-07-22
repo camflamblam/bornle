@@ -3,18 +3,18 @@ const SHEET_ID   = '180LA6R_gcH-5VOgibikuolK7PiuzPtNE48sCLpvGuvc';
 const SHEET_NAME = 'people';
 const SHEET_URL  = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
-// globals
-let peopleData       = [];
-let byYear           = {};
-let allYears         = [];
+// -------- Globals --------
+let peopleData         = [];
+let byYear             = {};
+let allYears           = [];
 let currentSuggestPool = [];
-let todaysYear       = null;
-let validAnswers     = [];
-let guessHistory     = [];
-const MAX_GUESSES    = 5;
-let gameOver         = false;
+let todaysYear         = null;
+let validAnswers       = [];
+let guessHistory       = [];
+const MAX_GUESSES      = 5;
+let gameOver           = false;
 
-// normalize: lowercase, strip punctuation/accents
+// -------- Utilities --------
 function normalize(str) {
   return str
     .toLowerCase()
@@ -24,37 +24,60 @@ function normalize(str) {
     .replace(/\s+/g, " ")
     .trim();
 }
-
-// convert year strings safely to numbers (handles weird chars)
 function toNum(y){
   return Number(String(y).replace(/[^\d-]/g,'').replace(/^-+/, '-'));
 }
 
-// ----- Period definitions -----
+// Period definitions
 const PERIODS = {
-  daily:        { label: "Daily (randomized)",              start: -Infinity, end:  Infinity },
-  ancient:      { label: "Ancient History (800 BCE–499 CE)", start: -800,     end:  499 },
-  medieval:     { label: "Medieval (500–1499)",              start: 500,      end: 1499 },
-  early_modern: { label: "Early Modern (1500–1799)",         start: 1500,     end: 1799 },
-  nineteenth:   { label: "19th Century (1800–1899)",         start: 1800,     end: 1899 },
-  twentieth:    { label: "20th Century (1900–1999)",         start: 1900,     end: 1999 },
+  daily:        { label: "Daily (randomized)",               start: -Infinity, end:  Infinity },
+  ancient:      { label: "Ancient History (800 BCE–499 CE)",  start: -800,     end:  499 },
+  medieval:     { label: "Medieval (500–1499)",               start: 500,      end: 1499 },
+  early_modern: { label: "Early Modern (1500–1799)",          start: 1500,     end: 1799 },
+  nineteenth:   { label: "19th Century (1800–1899)",          start: 1800,     end: 1899 },
+  twentieth:    { label: "20th Century (1900–1999)",          start: 1900,     end: 1999 },
+  all:          { label: "All Years",                         start: -Infinity, end:  Infinity }
 };
 
-// ----- Cache sheet in sessionStorage -----
-const CACHE_KEY = 'people_v5'; // bump if sheet schema/columns change
+// Cache (fails gracefully if quota is hit)
+const CACHE_KEY = 'people_v5';
 
 async function loadPeople() {
+  if (window.__PEOPLE__) return window.__PEOPLE__;
+
   const cached = sessionStorage.getItem(CACHE_KEY);
-  if (cached) return JSON.parse(cached);
+  if (cached) {
+    const parsed = JSON.parse(cached);
+    window.__PEOPLE__ = parsed;
+    return parsed;
+  }
 
   const res  = await fetch(SHEET_URL);
   const data = await res.json();
-  const clean = data.filter(r => r.name && r.birthyear);
-  sessionStorage.setItem(CACHE_KEY, JSON.stringify(clean));
+
+  // Keep only needed fields to reduce size
+  const clean = data
+    .filter(r => r.name && r.birthyear)
+    .map(({ name, birthyear, aliases, wikiurl }) => ({
+      name, birthyear, aliases, wikiurl
+    }));
+
+  window.__PEOPLE__ = clean;
+
+  try {
+    const json = JSON.stringify(clean);
+    if (json.length < 4.5e6) sessionStorage.setItem(CACHE_KEY, json);
+  } catch (e) {
+    console.warn('Skipping cache:', e.name);
+    // optional: clear old keys
+    Object.keys(sessionStorage)
+      .filter(k => k.startsWith('people_') && k !== CACHE_KEY)
+      .forEach(k => sessionStorage.removeItem(k));
+  }
   return clean;
 }
 
-// ----- Seeded RNG utilities -----
+// Seeded RNG (stable daily shuffle)
 function hashCode(str){
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
@@ -82,7 +105,7 @@ function shuffleWithSeed(arr, seedStr){
   return a;
 }
 
-// ----- Year helpers -----
+// Year helpers
 function yearsInRange(years, start, end){
   return years.filter(y => {
     const n = toNum(y);
@@ -99,7 +122,7 @@ function pickRandomYear(subset){
   return subset[Math.floor(Math.random() * subset.length)];
 }
 
-// Stricter, token-based match
+// Name matching
 function nameMatchesGuess(person, guess) {
   const fullName   = normalize(person.name);
   const nameTokens = fullName.split(' ').filter(Boolean);
@@ -108,24 +131,20 @@ function nameMatchesGuess(person, guess) {
     ? person.aliases.split(',').map(a => normalize(a))
     : [];
 
-  // 1) Exact full name or alias
   if (fullName === guess) return true;
   if (aliasList.includes(guess)) return true;
 
   const guessTokens = guess.split(' ').filter(Boolean);
 
-  // 2) Single-word guesses: must be >=4 chars AND match a whole token
   if (guessTokens.length === 1) {
     const g = guessTokens[0];
     if (g.length < 4) return false;
     return nameTokens.includes(g);
   }
-
-  // 3) Multi-word guesses: every token must appear as a whole token
   return guessTokens.every(t => nameTokens.includes(t));
 }
 
-// ---------------- AUTOCOMPLETE (datalist) ----------------
+// ---------- AUTOCOMPLETE (datalist) ----------
 function updateSuggestions(query) {
   const dl = document.getElementById('nameSuggestions');
   if (!dl) return;
@@ -159,7 +178,7 @@ function initAutocomplete() {
   input.addEventListener('input', e => updateSuggestions(e.target.value));
 }
 
-// ---------------- SHARE HELPERS ----------------
+// ---------- SHARE ----------
 function shareResult() {
   const lines = guessHistory.map(entry => {
     if (entry.startsWith('✅'))      return '🟩';
@@ -179,14 +198,13 @@ function shareResult() {
     copyToClipboard(shareText);
   }
 }
-
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text)
     .then(() => alert('Result copied to clipboard!'))
     .catch(() => prompt('Copy and paste this:', text));
 }
 
-// ---------------- WIKIPEDIA HELPERS ----------------
+// ---------- Wikipedia helpers ----------
 function loadImageForPerson(person) {
   if (!person || !person.wikiurl) return;
   const title = person.wikiurl.split('/wiki/')[1];
@@ -200,7 +218,7 @@ function loadImageForPerson(person) {
         img.style.display = 'block';
       }
     })
-    .catch(() => {/* no portrait */});
+    .catch(() => {});
 }
 
 function revealPersonDetails(person) {
@@ -215,20 +233,45 @@ function revealPersonDetails(person) {
         img.alt = person.name;
         img.style.display = 'block';
       }
+      const bio = document.getElementById('bio');
       if (summary.extract_html) {
-        const bio = document.getElementById('bio');
         bio.innerHTML = summary.extract_html;
-        bio.style.display = 'block';
       } else if (summary.extract) {
-        const bio = document.getElementById('bio');
         bio.textContent = summary.extract;
-        bio.style.display = 'block';
       }
+      bio.style.display = 'block';
     })
-    .catch(() => {/* no bio */});
+    .catch(() => {});
 }
 
-// ---------------- GAME LOGIC ----------------
+// ---------- UI builders for period buttons ----------
+function buildPeriodButtons(availableYears) {
+  const wrap = document.getElementById('periodButtons');
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  Object.entries(PERIODS).forEach(([key, def]) => {
+    const subsetYears = yearsInRange(availableYears, def.start, def.end);
+    if (!subsetYears.length) return; // hide if no data
+
+    const btn = document.createElement('button');
+    btn.className = 'period-btn';
+    btn.dataset.mode = key;
+    btn.textContent = def.label;
+    btn.setAttribute('aria-pressed', 'false');
+    wrap.appendChild(btn);
+  });
+}
+
+function setActiveButton(mode) {
+  document.querySelectorAll('.period-btn').forEach(b => {
+    const on = b.dataset.mode === mode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on);
+  });
+}
+
+// ---------- Game logic ----------
 function renderGuesses() {
   const container = document.getElementById('guesses');
   container.innerHTML = "";
@@ -289,7 +332,6 @@ function checkGuess() {
 
   if (guessHistory.length >= MAX_GUESSES) {
     gameOver = true;
-
     const idx          = Math.floor(Math.random() * validAnswers.length);
     const revealPerson = validAnswers[idx];
 
@@ -306,7 +348,7 @@ function checkGuess() {
   resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
 }
 
-// ---------------- INIT / EVENTS ----------------
+// ---------- Init ----------
 loadPeople()
   .then(data => {
     peopleData = data;
@@ -318,20 +360,11 @@ loadPeople()
     }, {});
     allYears = Object.keys(byYear).sort((a,b)=> toNum(a) - toNum(b));
 
-    // build period select with only periods that have data
-    const periodSelect = document.getElementById('periodSelect');
-    if (periodSelect) {
-      periodSelect.innerHTML = "";
-      Object.entries(PERIODS).forEach(([key, def]) => {
-        const subsetYears = yearsInRange(allYears, def.start, def.end);
-        if (!subsetYears.length) return;
-        const opt = document.createElement('option');
-        opt.value = key;
-        opt.textContent = def.label;
-        periodSelect.appendChild(opt);
-      });
-      if (!periodSelect.value) periodSelect.value = "daily";
-    }
+    // build period buttons
+    buildPeriodButtons(allYears);
+
+    // default mode
+    let currentMode = 'daily';
 
     function setPuzzleYear(modeKey){
       let chosenYear, subsetYears;
@@ -348,14 +381,15 @@ loadPeople()
         chosenYear = pickRandomYear(subsetYears);
       }
 
-      todaysYear          = chosenYear;
-      validAnswers        = byYear[todaysYear] || [];
-      currentSuggestPool  = (modeKey === "daily") ? peopleData
-                              : subsetYears.flatMap(y => byYear[y]);
+      todaysYear         = chosenYear;
+      validAnswers       = byYear[todaysYear] || [];
+      currentSuggestPool = (modeKey === "daily" || modeKey === "all")
+        ? peopleData
+        : subsetYears.flatMap(y => byYear[y]);
 
       document.getElementById('year').textContent = todaysYear;
 
-      // reset UI/game
+      // reset UI/state
       guessHistory = [];
       gameOver = false;
       renderGuesses();
@@ -366,17 +400,22 @@ loadPeople()
       document.getElementById('guessInput').value = "";
     }
 
-    // init puzzle
-    setPuzzleYear(periodSelect ? periodSelect.value : "daily");
+    // init puzzle & UI
+    setPuzzleYear(currentMode);
+    setActiveButton(currentMode);
 
-    // change on select
-    if (periodSelect) {
-      periodSelect.addEventListener('change', () => {
-        setPuzzleYear(periodSelect.value);
+    const btnWrap = document.getElementById('periodButtons');
+    if (btnWrap) {
+      btnWrap.addEventListener('click', (e) => {
+        const btn = e.target.closest('.period-btn');
+        if (!btn) return;
+        currentMode = btn.dataset.mode;
+        setPuzzleYear(currentMode);
+        setActiveButton(currentMode);
       });
     }
 
-    // init autocomplete AFTER currentSuggestPool is set
+    // init autocomplete AFTER currentSuggestPool set
     initAutocomplete();
   })
   .catch(err => {
@@ -384,6 +423,7 @@ loadPeople()
     document.getElementById('result').textContent = "⚠️ Error loading data";
   });
 
+// Enter key & share button
 window.addEventListener('DOMContentLoaded', () => {
   const inputEl = document.getElementById('guessInput');
   if (inputEl) {
