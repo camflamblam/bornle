@@ -129,3 +129,21 @@ h1 {
 .attribution a:hover {
   text-decoration: underline;
 }
+
+#shareButton {
+  display: none;    /* ensure it sizes like your other buttons */
+  padding: 12px 26px;          /* a bit larger than the submit button */
+  font-size: 17px;             /* bigger text */
+  font-family: "Cinzel", serif;/* match your headings */
+  background: #8b3a3a;         /* same rich red as your theme */
+  color: #fff;                 /* white text */
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .2s;
+  margin-top: 20px;            /* breathing room above it */
+}
+
+#shareButton:hover {
+  background: #6d2d2d;         /* same hover darker shade */
+}
