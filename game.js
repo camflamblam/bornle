@@ -63,27 +63,29 @@ function renderGuesses() {
 
 function updateSuggestions(query) {
   const dl = document.getElementById('nameSuggestions');
-  if (!dl) return; // in case HTML isn't set up
+  if (!dl) return;
 
   dl.innerHTML = "";
   if (!query || query.length < 3) return;
 
   const q = normalize(query);
-  const matches = peopleData
-    .filter(p => normalize(p.name).startsWith(q))
-    .slice(0, 15);
+  const seen = new Set(); // avoid duplicate options
+
+  const matches = peopleData.filter(p => {
+    const nameHit = normalize(p.name).startsWith(q);
+    const aliasHit = p.aliases
+      ? p.aliases.split(',').some(a => normalize(a).startsWith(q))
+      : false;
+    return nameHit || aliasHit;
+  }).slice(0, 15);
 
   matches.forEach(p => {
+    if (seen.has(p.name)) return;
+    seen.add(p.name);
     const opt = document.createElement('option');
-    opt.value = p.name;
+    opt.value = p.name;                    // always suggest canonical name
     dl.appendChild(opt);
   });
-}
-
-function initAutocomplete() {
-  const input = document.getElementById('guessInput');
-  if (!input) return;
-  input.addEventListener('input', e => updateSuggestions(e.target.value));
 }
 
 // SHARE HELPERS
