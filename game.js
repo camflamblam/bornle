@@ -22,15 +22,30 @@ function normalize(str) {
     .trim();
 }
 
-// alias‐aware match
+// Stricter, token-based match
 function nameMatchesGuess(person, guess) {
-  const main = normalize(person.name);
-  const aliases = person.aliases
+  const fullName   = normalize(person.name);                  // "johann sebastian bach"
+  const nameTokens = fullName.split(' ').filter(Boolean);     // ["johann","sebastian","bach"]
+
+  const aliasList = person.aliases
     ? person.aliases.split(',').map(a => normalize(a))
     : [];
-  if (main === guess || aliases.includes(guess)) return true;
-  if (main.includes(guess)) return true;
-  return false;
+
+  // 1) Exact full name or alias
+  if (fullName === guess) return true;
+  if (aliasList.includes(guess)) return true;
+
+  const guessTokens = guess.split(' ').filter(Boolean);
+
+  // 2) Single-word guesses: must be >=4 chars AND match a whole token
+  if (guessTokens.length === 1) {
+    const g = guessTokens[0];
+    if (g.length < 4) return false;
+    return nameTokens.includes(g);
+  }
+
+  // 3) Multi-word guesses: every token must appear as a whole token
+  return guessTokens.every(t => nameTokens.includes(t));
 }
 
 // render the guess history
@@ -42,6 +57,33 @@ function renderGuesses() {
     div.textContent = entry;
     container.appendChild(div);
   });
+}
+
+// ------- AUTOCOMPLETE (datalist) -------
+
+function updateSuggestions(query) {
+  const dl = document.getElementById('nameSuggestions');
+  if (!dl) return; // in case HTML isn't set up
+
+  dl.innerHTML = "";
+  if (!query || query.length < 3) return;
+
+  const q = normalize(query);
+  const matches = peopleData
+    .filter(p => normalize(p.name).startsWith(q))
+    .slice(0, 15);
+
+  matches.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    dl.appendChild(opt);
+  });
+}
+
+function initAutocomplete() {
+  const input = document.getElementById('guessInput');
+  if (!input) return;
+  input.addEventListener('input', e => updateSuggestions(e.target.value));
 }
 
 // SHARE HELPERS
@@ -93,7 +135,11 @@ fetch(SHEET_URL)
     validAnswers = peopleData.filter(p => p.birthyear === todaysYear);
 
     document.getElementById('year').textContent = todaysYear;
-  })
+  
+      // now that peopleData exists, wire up autocomplete
+    initAutocomplete();
+   }) 
+
   .catch(err => {
     console.error("Data load failed:", err);
     document.getElementById('result').textContent = "⚠️ Error loading data";
