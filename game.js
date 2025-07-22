@@ -11,6 +11,7 @@ let currentSuggestPool = [];
 let todaysYear         = null;
 let validAnswers       = [];
 let guessHistory       = [];
+let guessedNames = new Set();
 const MAX_GUESSES      = 5;
 let gameOver           = false;
 
@@ -108,6 +109,11 @@ function shuffleWithSeed(arr, seedStr){
   return a;
 }
 
+// Guess helpers
+function markGuessed(person){
+  guessedNames.add(normalize(person.name));
+}
+
 // Year helpers
 function yearsInRange(years, start, end){
   return years.filter(y => {
@@ -159,12 +165,16 @@ function updateSuggestions(query) {
   const seen = new Set();
 
   const matches = currentSuggestPool.filter(p => {
+    if (guessedNames.has(normalize(p.name))) return false;
+    
     const nameHit  = normalize(p.name).startsWith(q);
     const aliasHit = p.aliases
       ? p.aliases.split(',').some(a => normalize(a).startsWith(q))
       : false;
     return nameHit || aliasHit;
   }).slice(0, 15);
+
+  
 
   matches.forEach(p => {
     if (seen.has(p.name)) return;
@@ -305,6 +315,15 @@ function checkGuess() {
   const personByName = peopleData.find(p => nameMatchesGuess(p, guess));
   const correct      = validAnswers.find(p => nameMatchesGuess(p, guess));
 
+  // Duplicate check (same person again)
+if (personByName && guessedNames.has(normalize(personByName.name))) {
+  guessHistory.push(`↩️ You already tried ${personByName.name}.`);
+  renderGuesses();
+  if (inputEl) inputEl.value = "";
+    updateSuggestions(""); // clear datalist
+    return;
+}
+
   if (guessHistory.length >= MAX_GUESSES) {
     if (resultEl) resultEl.textContent = "🚫 No more guesses.";
     return;
@@ -337,6 +356,7 @@ function checkGuess() {
 
   renderGuesses();
   if (inputEl) inputEl.value = "";
+  updateSuggestions("");
 
   if (guessHistory.length >= MAX_GUESSES) {
     gameOver = true;
