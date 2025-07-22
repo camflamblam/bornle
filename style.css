@@ -94,3 +94,24 @@ h1 {
   margin: 20px auto;
   border-radius: 4px;
 }
+
+.attribution {
+  margin-top: 60px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #666;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+.attribution a {
+  color: #8b3a3a;
+  text-decoration: none;
+}
+
+.attribution a:hover {
+  text-decoration: underline;
+}
