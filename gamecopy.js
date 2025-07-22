@@ -40,7 +40,6 @@ const PERIODS = {
   early_modern: { label: "Early Modern (1500–1799)",          start: 1500,     end: 1799 },
   nineteenth:   { label: "19th Century (1800–1899)",          start: 1800,     end: 1899 },
   twentieth:    { label: "20th Century (1900–1999)",          start: 1900,     end: 1999 },
-  all:          { label: "All Years",                         start: -Infinity, end:  Infinity }
 };
 
 // Cache (skip if quota exceeded)
