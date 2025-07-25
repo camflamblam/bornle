@@ -34,6 +34,41 @@ function normalize(str) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// List of honorifics / titles to ignore
+const TITLE_WORDS = [
+  "sir","dr","mr","mrs","ms","lord","lady",
+  "professor","prof","captain","king","queen",
+  "prince","princess","duke","duchess",
+  "saint","st"
+];
+
+/**
+ * Remove any leading title words from a full name.
+ */
+function stripTitles(fullName) {
+  const tokens = fullName.split(/\s+/);
+  let i = 0;
+  while (i < tokens.length - 1 && TITLE_WORDS.includes(tokens[i].toLowerCase())) {
+    i++;
+  }
+  return tokens.slice(i).join(" ");
+}
+
+/**
+ * Get the surname (last token) from a name, after stripping titles
+ * and dropping any trailing Roman numerals.
+ */
+function getSurname(fullName) {
+  let name = stripTitles(fullName);
+  let parts = name.split(/\s+/);
+  // drop trailing roman numeral (I, II, III, IV, etc.)
+  if (/^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$/i.test(parts[parts.length - 1])) {
+    parts.pop();
+  }
+  return parts[parts.length - 1].toLowerCase();
+}
+
 function toNum(y){
   return Number(String(y).replace(/[^\d-]/g,'').replace(/^-+/, '-'));
 }
@@ -132,26 +167,35 @@ function pickRandomYear(subset){
 }
 
 // Name matching
-function nameMatchesGuess(person, guess) {
-  const fullName   = normalize(person.name);
-  const nameTokens = fullName.split(' ').filter(Boolean);
+function nameMatchesGuess(person, rawGuess) {
+  const guess = normalize(rawGuess);
 
-  const aliasList = person.aliases
-    ? person.aliases.split(',').map(a => normalize(a))
-    : [];
+  // 1. Strip titles and normalize the main name
+  const cleanName = normalize(stripTitles(person.name));
 
-  if (fullName === guess) return true;
-  if (aliasList.includes(guess)) return true;
+  // 2. Build normalized aliases
+  const aliasList = (person.aliases || "")
+    .split(",")
+    .map(a => normalize(a.trim()))
+    .filter(Boolean);
 
-  const guessTokens = guess.split(' ').filter(Boolean);
+  // 3. Exact match on full name or alias
+  if (guess === cleanName || aliasList.includes(guess)) return true;
 
-  if (guessTokens.length === 1) {
-    const g = guessTokens[0];
-    if (g.length < 4) return false;
-    return nameTokens.includes(g);
+  // 4. Exact match on surname
+  const surname = getSurname(person.name);
+  if (guess === surname) return true;
+
+  // (Optional) for two‑word guesses: both tokens must appear
+  const guessTokens = guess.split(" ").filter(Boolean);
+  if (guessTokens.length > 1 &&
+      guessTokens.every(tok => cleanName.split(" ").includes(tok))) {
+    return true;
   }
-  return guessTokens.every(t => nameTokens.includes(t));
+
+  return false;
 }
+
 
 // ---------- AUTOCOMPLETE ----------
 function updateSuggestions(query) {
