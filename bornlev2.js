@@ -8,11 +8,17 @@ let peopleData         = [];
 let byYear             = {};
 let allYears           = [];
 let currentSuggestPool = [];
-let todaysYear         = null;
-let validAnswers       = [];
-let guessHistory       = [];
-const MAX_GUESSES      = 5;
-let gameOver           = false;
+let periodStart     = null;
+let periodEnd       = null;
+let validAnswers    = [];
+let currentPerson   = null;
+let mode            = 'stage1';       // or 'stage2'
+let stage1Guesses   = 0;
+let stage2Guesses   = 0;
+const MAX_STAGE1    = 5;              // name guesses
+const MAX_STAGE2    = 3;              // year guesses
+let guessHistory    = [];
+let gameOver        = false;
 
 // Utility to avoid null.style crashes
 function hideEl(id){ const el = document.getElementById(id); if(el) el.style.display='none'; }
@@ -291,71 +297,83 @@ function renderGuesses() {
 function checkGuess() {
   if (gameOver) return;
 
-  const inputEl = document.getElementById('guessInput');
-  const raw      = inputEl ? inputEl.value : '';
-  const guess    = normalize(raw);
-  const resultEl = document.getElementById('result');
-
-  if (!todaysYear) {
-    if (resultEl) resultEl.textContent = "⏳ Still loading…";
-    return;
-  }
+  const raw     = document.getElementById('guessInput').value;
+  const guess   = normalize(raw);
+  const result  = document.getElementById('result');
   if (!guess) return;
 
-  const personByName = peopleData.find(p => nameMatchesGuess(p, guess));
-  const correct      = validAnswers.find(p => nameMatchesGuess(p, guess));
+  // -------- STAGE 1: Name guesses --------
+  if (mode === 'stage1') {
+    stage1Guesses++;
+    if (stage1Guesses > MAX_STAGE1) {
+      result.textContent = `🚫 No more name guesses.`;
+      // fall through to reveal?
+      gameOver = true;
+      return;
+    }
 
-  if (guessHistory.length >= MAX_GUESSES) {
-    if (resultEl) resultEl.textContent = "🚫 No more guesses.";
-    return;
-  }
+    // find a matching person
+    const p = peopleData.find(p => nameMatchesGuess(p, guess));
+    if (!p) {
+      guessHistory.push(`❌ "${raw}" — Not found.`);
+    }
+    else if (toNum(p.birthyear) < periodStart || toNum(p.birthyear) > periodEnd) {
+      guessHistory.push(`❌ ${p.name} — born in ${p.birthyear}, outside range.`);
+    }
+    else {
+      // correct person for the block!
+      currentPerson = p;
+      mode = 'stage2';
+      result.textContent =
+        `Nice! Now guess the exact year between ${periodStart} and ${periodEnd}.`;
+      document.getElementById('guessInput').value = '';
+      renderGuesses();
+      return;
+    }
 
-  if (correct) {
-    guessHistory.push(`✅ ${correct.name} — Correct!`);
     renderGuesses();
-    if (resultEl)
-      resultEl.textContent =
-        `🎉 You got it in ${guessHistory.length} guess${guessHistory.length>1?'es':''}.`;
-
-    revealPersonDetails(correct);
-    showEl('shareButton', 'inline-block');
-
-    gameOver = true;
+    result.textContent = `Name guess ${stage1Guesses} / ${MAX_STAGE1}`;
+    document.getElementById('guessInput').value = '';
     return;
   }
 
-  if (personByName) {
-    const theirYear = +personByName.birthyear;
-    const diff      = Math.abs(theirYear - +todaysYear);
-    const dir       = theirYear < todaysYear ? "earlier" : "later";
-    guessHistory.push(
-      `❌ ${personByName.name} — ${diff} year${diff!==1?'s':''} ${dir}.`
-    );
-  } else {
-    guessHistory.push(`❌ "${raw}" — Not found.`);
+  // -------- STAGE 2: Exact year guesses --------
+  if (mode === 'stage2') {
+    stage2Guesses++;
+    const yearGuess = parseInt(guess, 10);
+    if (isNaN(yearGuess)) {
+      result.textContent = `❌ "${raw}" is not a year.`;
+      return;
+    }
+
+    if (yearGuess === toNum(currentPerson.birthyear)) {
+      result.textContent = `🎉 Exactly right—${yearGuess}!`;
+      guessHistory.push(`✅ ${currentPerson.name} — ${yearGuess}`);
+      renderGuesses();
+      revealPersonDetails(currentPerson);
+      showEl('shareButton', 'inline-block');
+      gameOver = true;
+    }
+    else {
+      if (stage2Guesses >= MAX_STAGE2) {
+        result.textContent =
+          `🛑 Out of year guesses! ${currentPerson.name} was born in ${currentPerson.birthyear}.`;
+        guessHistory.push(`🛑 Revealed: ${currentPerson.name} — ${currentPerson.birthyear}`);
+        renderGuesses();
+        revealPersonDetails(currentPerson);
+        showEl('shareButton', 'inline-block');
+        gameOver = true;
+      }
+      else {
+        const dir = yearGuess < currentPerson.birthyear ? 'earlier' : 'later';
+        guessHistory.push(`❌ ${yearGuess} — ${dir}.`);
+        renderGuesses();
+        result.textContent = `Year guess ${stage2Guesses} / ${MAX_STAGE2}.`;
+      }
+    }
   }
-
-  renderGuesses();
-  if (inputEl) inputEl.value = "";
-
-  if (guessHistory.length >= MAX_GUESSES) {
-    gameOver = true;
-    const idx          = Math.floor(Math.random() * validAnswers.length);
-    const revealPerson = validAnswers[idx];
-
-    guessHistory.push(
-      `🛑 Out of guesses. Here’s someone born in ${todaysYear}: ${revealPerson.name}.`
-    );
-    renderGuesses();
-    revealPersonDetails(revealPerson);
-    showEl('shareButton', 'inline-block');
-    if (resultEl) resultEl.textContent = "";
-    return;
-  }
-
-  if (resultEl)
-    resultEl.textContent = `Guess ${guessHistory.length} / ${MAX_GUESSES}`;
 }
+
 
 // ---------- Init ----------
 loadPeople()
@@ -376,41 +394,40 @@ loadPeople()
     let currentMode = 'daily';
 
     function setPuzzleYear(modeKey){
-      let chosenYear, subsetYears;
-      if (modeKey === "daily" || !PERIODS[modeKey]) {
-        chosenYear   = pickDailyYear(allYears);
-        subsetYears  = allYears;
-      } else {
-        const { start, end } = PERIODS[modeKey];
-        subsetYears  = yearsInRange(allYears, start, end);
-        if (!subsetYears.length) {
-          const resultEl = document.getElementById('result');
-          if (resultEl) resultEl.textContent = "No data for that period.";
-          return;
-        }
-        chosenYear = pickRandomYear(subsetYears);
-      }
+      // --- choose a 50‑year span once on load ---
+const yearsNum = allYears.map(y => toNum(y)).sort((a,b)=>a-b);
+const minY = yearsNum[0];
+const maxY = yearsNum[yearsNum.length-1];
 
-      todaysYear         = chosenYear;
-      validAnswers       = byYear[todaysYear] || [];
-      currentSuggestPool = (modeKey === "daily" || modeKey === "all")
-        ? peopleData
-        : subsetYears.flatMap(y => byYear[y]);
+// compute a daily seed so everyone gets the same block each day
+const daySeed = Math.floor((Date.now() - new Date("2025-01-01").getTime())/86400000);
+const spanCount = (maxY - minY + 1) - 50;
+const offset = ((daySeed % (spanCount+1)) + (spanCount+1)) % (spanCount+1);
 
-      const yearEl = document.getElementById('year');
-      if (yearEl) yearEl.textContent = todaysYear;
+periodStart = minY + offset;
+periodEnd   = periodStart + 49;
 
-      // reset UI/state
-      guessHistory = [];
-      gameOver = false;
-      renderGuesses();
-      const resultEl = document.getElementById('result');
-      if (resultEl) resultEl.textContent = "";
-      hideEl('portrait');
-      hideEl('bio');
-      hideEl('shareButton');
-      const inputEl = document.getElementById('guessInput');
-      if (inputEl) inputEl.value = "";
+// build the pool for stage‑1 (all people in that block)
+validAnswers = peopleData
+  .filter(p => {
+    const y = toNum(p.birthyear);
+    return y >= periodStart && y <= periodEnd;
+  });
+
+// show the prompt
+document.getElementById('yearPrompt').textContent =
+  `Guess someone born between ${periodStart} and ${periodEnd}`;
+
+// reset state
+mode          = 'stage1';
+stage1Guesses = 0;
+stage2Guesses = 0;
+guessHistory.length = 0;
+gameOver      = false;
+renderGuesses();
+hideEl('portrait');
+hideEl('bio');
+hideEl('shareButton');
     }
 
     // init puzzle & UI
