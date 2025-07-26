@@ -73,6 +73,31 @@ function toNum(y){
   return Number(String(y).replace(/[^\d-]/g,'').replace(/^-+/, '-'));
 }
 
+function buildDatalistOptions() {
+  const dl = document.getElementById('nameSuggestions');
+  if (!dl) return;
+  dl.innerHTML = '';
+  const seen = new Set();
+  currentSuggestPool.forEach(p => {
+    if (!seen.has(p.name)) {
+      seen.add(p.name);
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      dl.appendChild(opt);
+    }
+    (p.aliases||'').split(',').forEach(a => {
+      const alias = a.trim();
+      if (alias && !seen.has(alias)) {
+        seen.add(alias);
+        const opt = document.createElement('option');
+        opt.value = alias;
+        dl.appendChild(opt);
+      }
+    });
+  });
+}
+
+
 // Period definitions
 const PERIODS = {
   daily:        { label: "Daily (randomized)",               start: -Infinity, end:  Infinity },
@@ -424,6 +449,12 @@ loadPeople()
   .then(data => {
     peopleData = data;
 
+  // ── AUTOCOMPLETE SETUP ──
+    currentSuggestPool = peopleData.slice();  // clone full list
+    buildDatalistOptions();                    // populate <datalist>
+    initAutocomplete();                        // wire input listener
+    // ────────────────────────  
+
     // index by year
     byYear = peopleData.reduce((acc, p) => {
       (acc[p.birthyear] ||= []).push(p);
@@ -439,6 +470,7 @@ loadPeople()
 
     function setPuzzleYear(modeKey){
       // --- choose a 50‑year span once on load ---
+      
 const yearsNum = allYears.map(y => toNum(y)).sort((a,b)=>a-b);
 const minY = yearsNum[0];
 const maxY = yearsNum[yearsNum.length-1];
