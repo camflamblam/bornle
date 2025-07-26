@@ -73,29 +73,7 @@ function toNum(y){
   return Number(String(y).replace(/[^\d-]/g,'').replace(/^-+/, '-'));
 }
 
-function buildDatalistOptions() {
-  const dl = document.getElementById('nameSuggestions');
-  if (!dl) return;
-  dl.innerHTML = '';
-  const seen = new Set();
-  currentSuggestPool.forEach(p => {
-    if (!seen.has(p.name)) {
-      seen.add(p.name);
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      dl.appendChild(opt);
-    }
-    (p.aliases||'').split(',').forEach(a => {
-      const alias = a.trim();
-      if (alias && !seen.has(alias)) {
-        seen.add(alias);
-        const opt = document.createElement('option');
-        opt.value = alias;
-        dl.appendChild(opt);
-      }
-    });
-  });
-}
+
 
 
 // Period definitions
@@ -227,20 +205,32 @@ function updateSuggestions(query) {
   const dl = document.getElementById('nameSuggestions');
   if (!dl) return;
 
+  // clear out old options
   dl.innerHTML = "";
+
+  // only start suggesting after 3 characters
   if (!query || query.length < 3) return;
 
   const q = normalize(query);
   const seen = new Set();
 
+  // find at most 15 matches
   const matches = currentSuggestPool.filter(p => {
-    const nameHit  = normalize(p.name).startsWith(q);
-    const aliasHit = p.aliases
-      ? p.aliases.split(',').some(a => normalize(a).startsWith(q))
-      : false;
-    return nameHit || aliasHit;
+    const nameNorm = normalize(stripTitles(p.name));
+    const surname  = getSurname(p.name);
+    const aliasList = (p.aliases || "")
+      .split(',')
+      .map(a => normalize(a.trim()));
+
+    // match if name, surname, or alias starts with q
+    return (
+      nameNorm.startsWith(q) ||
+      surname.startsWith(q) ||
+      aliasList.some(a => a.startsWith(q))
+    );
   }).slice(0, 15);
 
+  // build options showing only p.name
   matches.forEach(p => {
     if (seen.has(p.name)) return;
     seen.add(p.name);
@@ -249,6 +239,7 @@ function updateSuggestions(query) {
     dl.appendChild(opt);
   });
 }
+
 
 function initAutocomplete() {
   const input = document.getElementById('guessInput');
@@ -451,7 +442,6 @@ loadPeople()
 
   // ── AUTOCOMPLETE SETUP ──
     currentSuggestPool = peopleData.slice();  // clone full list
-    buildDatalistOptions();                    // populate <datalist>
     initAutocomplete();                        // wire input listener
     // ────────────────────────  
 
@@ -470,7 +460,7 @@ loadPeople()
 
     function setPuzzleYear(modeKey){
       // --- choose a 50‑year span once on load ---
-      
+
 const yearsNum = allYears.map(y => toNum(y)).sort((a,b)=>a-b);
 const minY = yearsNum[0];
 const maxY = yearsNum[yearsNum.length-1];
