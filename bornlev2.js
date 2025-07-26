@@ -202,6 +202,7 @@ function nameMatchesGuess(person, rawGuess) {
 
 // ---------- AUTOCOMPLETE ----------
 function updateSuggestions(query) {
+  console.log("updateSuggestions:", query);
   const dl = document.getElementById('nameSuggestions');
   if (!dl) return;
 
